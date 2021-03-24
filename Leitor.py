@@ -2,7 +2,7 @@
 from __future__ import print_function
 import time
 from datetime import datetime
-import mercury
+#import mercury
 
 # An extremely simple HTTP server
 import socket, sys, time, os
@@ -13,18 +13,44 @@ HOST=''
 PORT=5021
 #BUFLEN=8192 # buffer size
 
+def crud():
+	arq = open('configInicial.txt','r')
+	req = arq.readline().strip("\n")
+	if(req == "configLeitor"):
+		configLeitor(arq)
+	else:
+		print("Deu ruim")
 
+def configLeitor(arq):
+	serial = arq.readline().strip("\n")
+	baud = int(arq.readline())
+	regiao = arq.readline().strip("\n")
+	antena = int(arq.readline())
+	gen = arq.readline().strip("\n")
+	power = int(arq.readline())
+	arq.close()
+	print(serial)
+	print(baud)
+	print(regiao)
+	print(antena)
+	print(gen)
+	print(power)
+
+crud()
+
+'''
 flname = 'configInicial.txt'
 arq = open(flname,'r')
 
-serial = arq.readline()
+serial = arq.readline().strip("\n")
 baud = int(arq.readline())
-regiao = arq.readline()
+regiao = arq.readline().strip("\n")
 antena = int(arq.readline())
-gen = arq.readline()
+gen = arq.readline().strip("\n")
 power = int(arq.readline())
 
 arq.close()
+
 print(serial)
 print(baud)
 print(regiao)
@@ -32,7 +58,10 @@ print(antena)
 print(gen)
 print(power)
 
-'''
+if (req == "configInicial")
+	setarLeitor()
+
+
 reader = mercury.Reader(serial, baudrate=baud)
 reader.set_region(regiao)
 reader.set_read_plan([antena], gen, read_power=power)
