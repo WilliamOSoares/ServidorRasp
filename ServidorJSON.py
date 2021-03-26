@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 from __future__ import print_function
 from datetime import datetime
-import mercury, time, socket, sys, time, os
+import mercury, time, socket, sys, time, os, json
 
 HOST=''
-PORT=5021
+PORT=2020
 
 def crud(con):
 	arq = open('requisito.txt','r')
@@ -37,16 +37,19 @@ def configLeitor(arq, con):
 	#Tem que testar
 
 def atende(con):
-	arq = open('requisito.txt','w+')
 	while True:
 		print ('Iniciando...')
-		recb = con.recv(1024).decode()
+		recb = con.recv(1024).decode('utf-8')
 		if not recb: break
-		arq.write(recb + "\n")
-		print ('Arquivo enviado!')
-	arq.close()
-		
-def atualizacao(arq,con)
+		print (recb)
+		dados = json.loads(recb)
+		if(dados['METODO'] == "POST"):
+			print(dados['URL'])
+		else:
+			print("Xablau")
+		con.sendall(bytes(recb.encode('utf-8')))
+		print ('Arquivo enviado!')		
+def atualizacao(con):
 	print("ó tá atualizando")
 
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -59,11 +62,13 @@ except socket.error :
 	sys.exit(-1)
 
 s.listen(1)
+con, cliente = s.accept()
+print ('Concetado por', cliente)
 
 while 1:
-	con, cliente = s.accept()
-	print ('Concetado por', cliente)
 	atende(con)
-	crud(con)
-	print ('Finalizando conexao do cliente', cliente)
-	con.close()
+	#crud(con)
+	
+	
+print ('Finalizando conexao do cliente', cliente)
+con.close()
