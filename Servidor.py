@@ -22,30 +22,25 @@ while True:
 	print ('Concetado por', cliente)
 	arq = open('configInicial.txt','a')
 	while True:
-		print ('Iniciando...')
-		recb = con.recv(1024).decode()
+		while True:
+		print ('Escutando mensagem')
+		recebido = con.recv(1024).decode('utf-8')
 		if not recb: break
-		arq.write(recb + "\n")
-		print ('Arquivo enviado!')
+		objetoJson = json.loads(recb)
+		if(objetoJson['METODO'] == "POST"):
+			readPower = int(objetoJson['power'])
+			protoc = objetoJson['protocolo']
+			nAntena = int(objetoJson['antena'])
+			regiao = objetoJson['regiao']
+			baudrate = int(objetoJson['baudrate'])
+			portaSerial = objetoJson['portaSerial']
+			reader = mercury.Reader(portaSerial, baudrate=baudrate)
+			reader.set_region(regiao)
+			reader.set_read_plan([nAntena], protoc, read_power=readPower)
+			print(reader.read())
+		else:
+			print("GET")
+		con.sendall(bytes(recb.encode('utf-8')))
 	arq.close()
 	print ('Finalizando conexao do cliente', cliente)
 	con.close()
-
-
-'''
-import socket, threading
-
-class RIFDThread(threading.Thread):	
-	
-	def __init__():
-		arq = open('configInicial.txt','r')
-		textPortaSerial = arq.readline()
-		textBaudrate = arq.readline()
-		textRegiao = arq.readline()
-		textAntena = arq.readline()
-		textProtocolo = arq.readline()
-		textPower = arq.readline()
-
-	def run():
-
-'''
