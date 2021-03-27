@@ -6,35 +6,12 @@ import mercury, time, socket, sys, time, os, json
 HOST=''
 PORT=2020
 
-def crud(con):
-	arq = open('requisito.txt','r')
-	req = arq.readline().strip("\n")
-	if(req == "configLeitor"):
-		configLeitor(arq,con)
-	elif(req == "att"):
-		atualizacao(arq,con)
 
-def configLeitor(arq, con):
-	serial = arq.readline().strip("\n")
-	baud = int(arq.readline())
-	regiao = arq.readline().strip("\n")
-	antena = int(arq.readline())
-	gen = arq.readline().strip("\n")
-	power = int(arq.readline())
-	arq.close()
-	reader = mercury.Reader(serial, baudrate=baud)
-	reader.set_region(regiao)
-	reader.set_read_plan([antena], gen, read_power=power)
-	#print(reader.read())
-	tags = list(map(lambda t: t.epc, reader.read()))
-	array = []
-	for x in range(len(tags)):
-	    dado = str(tags[x])
-	    print(dado)
-	    array.append(dado+"\n")
-	for y in range(len(array)):
-		con.sendall(str.encode(array[y]))
-	#Tem que testar
+def configLeitor(arqJson):
+	reader = mercury.Reader(arqJson['portaSerial'], baudrate=int(arqJson['baudrate']))
+	reader.set_region(arqJson['regiao'])
+	reader.set_read_plan([int(arqJson['antena'])], arqJson['protocolo'], read_power=int(arqJson['power']))
+	print(reader.read())
 
 def atende(con):
 	while True:
@@ -44,13 +21,12 @@ def atende(con):
 		print (recb)
 		dados = json.loads(recb)
 		if(dados['METODO'] == "POST"):
-			print(dados['URL'])
+			if(dados['URL'] == "configLeitor"):
+				configLeitor(dados)
 		else:
-			print("Xablau")
+			print("GET")
 		con.sendall(bytes(recb.encode('utf-8')))
-		print ('Arquivo enviado!')		
-def atualizacao(con):
-	print("ó tá atualizando")
+		print ('Arquivo enviado!')
 
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 try:
@@ -66,9 +42,7 @@ con, cliente = s.accept()
 print ('Concetado por', cliente)
 
 while 1:
-	atende(con)
-	#crud(con)
-	
+	atende(con)	
 	
 print ('Finalizando conexao do cliente', cliente)
 con.close()
