@@ -13,6 +13,11 @@ def configLeitor(arqJson):
 	reader.set_read_plan([int(arqJson['antena'])], arqJson['protocolo'], read_power=int(arqJson['power']))
 	print(reader.read())
 
+def dadosCorrida(con):
+	stringzona = '{"URL":"dadosCorrida", "EPC1":"1452355689784"}'
+	preparacaoEnvio = stringzona + "\n"
+	con.sendall(bytes(preparacaoEnvio.encode('utf-8')))
+
 def atende(con):
 	while True:
 		print ('Iniciando...')
@@ -23,10 +28,12 @@ def atende(con):
 		if(dados['METODO'] == "POST"):
 			if(dados['URL'] == "configLeitor"):
 				configLeitor(dados)
+		elif(dados['METODO'] == "GET"):
+			if(dados['URL'] == "dadosCorrida"):
+				dadosCorrida(con)
 		else:
-			print("GET")
-		con.sendall(bytes(recb.encode('utf-8')))
-		print ('Arquivo enviado!')
+			print("Não é um POST e nem um GET")
+		print ('requisição finalizada!')
 
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 try:
@@ -46,3 +53,14 @@ while 1:
 	
 print ('Finalizando conexao do cliente', cliente)
 con.close()
+
+'''
+tags = list(map(lambda t: t.epc, reader.read()))
+	array = []
+	for x in range(len(tags)):
+	    dado = str(tags[x])
+	    print(dado)
+	    array.append(dado+"\n")
+	for y in range(len(array)):
+		con.sendall(str.encode(array[y]))
+'''
