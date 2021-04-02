@@ -5,18 +5,52 @@ import mercury, time, socket, sys, time, os, json
 
 HOST=''
 PORT=2020
+portaSerial = ""
+baud = 0
+regiao = ""
+antena = 0
+protocolo = ""
+readPower = 0
 
+def iniciaLeitor():
+	global portaSerial, baud, regiao, antena, protocolo, readPower
+	reader = mercury.Reader(portaSerial, baudrate=baud)
+	reader.set_region(regiao)
+	reader.set_read_plan([antena], protocolo, read_power=readPower)
+	return reader
 
 def configLeitor(arqJson):
-	reader = mercury.Reader(arqJson['portaSerial'], baudrate=int(arqJson['baudrate']))
-	reader.set_region(arqJson['regiao'])
-	reader.set_read_plan([int(arqJson['antena'])], arqJson['protocolo'], read_power=int(arqJson['power']))
-	print(reader.read())
+	global portaSerial, baud, regiao, antena, protocolo, readPower
+	portaSerial = arqJson['portaSerial']
+	baud = int(arqJson['baudrate'])
+	regiao = arqJson['regiao']
+	antena = int(arqJson['antena'])
+	protocolo = arqJson['protocolo']
+	readPower = int(arqJson['power'])
 
 def dadosCorrida(con):
-	stringzona = '{"URL":"dadosCorrida", "EPC1":"1452355689784"}'
+	stringzona = '{"URL":"dadosCorrida", "return":"OK"}'
 	preparacaoEnvio = stringzona + "\n"
 	con.sendall(bytes(preparacaoEnvio.encode('utf-8')))
+
+def retornaEPC(con):
+	reader = iniciaLeitor()
+	tags = list(map(lambda t: t.epc, reader.read()))
+	preparajson = '{'
+	for x in range(len(tags)):
+	    dado = str(tags[x])
+	    print(dado)
+	    preparajson = preparajson + '"EPC'+str(x)+ '":"' + dado + '", '
+	    print(preparajson)
+	
+	size = len(preparajson)
+	remove = preparajson[:size - 2]
+	print(remove)
+	preparajson = remove
+	preparajson = preparajson +'}'
+	preparajson = preparajson +	"\n"
+	print(preparajson)
+	#con.sendall(bytes(preparajson.encode('utf-8')))
 
 def atende(con):
 	while True:
@@ -31,6 +65,8 @@ def atende(con):
 		elif(dados['METODO'] == "GET"):
 			if(dados['URL'] == "dadosCorrida"):
 				dadosCorrida(con)
+			if(dados['URL'] == "retornaEPC"):
+				retornaEPC(con)
 		else:
 			print("Não é um POST e nem um GET")
 		print ('requisição finalizada!')
@@ -53,14 +89,3 @@ while 1:
 	
 print ('Finalizando conexao do cliente', cliente)
 con.close()
-
-'''
-tags = list(map(lambda t: t.epc, reader.read()))
-	array = []
-	for x in range(len(tags)):
-	    dado = str(tags[x])
-	    print(dado)
-	    array.append(dado+"\n")
-	for y in range(len(array)):
-		con.sendall(str.encode(array[y]))
-'''
