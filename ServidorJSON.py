@@ -11,6 +11,9 @@ regiao = ""
 antena = 0
 protocolo = ""
 readPower = 0
+voltas = 0
+tempoMin = 0
+tempoQuali = 0
 
 def iniciaLeitor():
 	global portaSerial, baud, regiao, antena, protocolo, readPower
@@ -28,10 +31,34 @@ def configLeitor(arqJson):
 	protocolo = arqJson['protocolo']
 	readPower = int(arqJson['power'])
 
-def dadosCorrida(con):
+def dadosCorrida(con, arqJson):
+	global voltas, tempoMin, tempoQuali
+	voltas = int(arqJson['Voltas'])
+	tempoQuali = int(arqJson['Quali'])*60
+	tempoMin = int(arqJson['TempoMin'])*60
 	stringzona = '{"URL":"dadosCorrida", "return":"OK"}'
 	preparacaoEnvio = stringzona + "\n"
 	con.sendall(bytes(preparacaoEnvio.encode('utf-8')))
+
+def dadosLeitura(epc, rssi, date):
+	print (epc, rssi, date)
+
+
+def qualificatorio(con):
+	reader = iniciaLeitor()
+	global tempoQuali
+	while (tempoQuali>0):
+		reader.start_reading(lambda tag: dadosLeitura(tag.epc, tag.rssi, datetime.fromtimestamp(tag.timestamp)))
+		#quali = list(map(reader.start_reading(lambda t: t.epc, t.rssi, datetime.fromtimestamp(t.timestamp))))
+		#reader.start_reading(lambda tag: print(tag.epc, tag.antenna, tag.read_count, tag.rssi, datetime.fromtimestamp(tag.timestamp)))
+		time.sleep(tempoMin*0.2) # O sensor irá ficar lendo por 20% do tempo minimo de volta
+		reader.stop_reading()
+		for x in range(len(quali)):
+			print(str(quali[x]))
+		time.sleep(tempoMin*0.8) # O sensor irá ficar sem ler por 80% do tempo minimo de volta
+		tempoQuali = tempoQuali - tempoMin
+	print ("acabou o qualificatorio")
+
 
 def retornaEPC(con):
 	reader = iniciaLeitor()
@@ -50,7 +77,7 @@ def retornaEPC(con):
 	preparajson = preparajson +'}'
 	preparajson = preparajson +	"\n"
 	print(preparajson)
-	#con.sendall(bytes(preparajson.encode('utf-8')))
+	con.sendall(bytes(preparajson.encode('utf-8')))
 
 def atende(con):
 	while True:
@@ -64,9 +91,12 @@ def atende(con):
 				configLeitor(dados)
 		elif(dados['METODO'] == "GET"):
 			if(dados['URL'] == "dadosCorrida"):
-				dadosCorrida(con)
-			if(dados['URL'] == "retornaEPC"):
+				dadosCorrida(con, dados)
+			elif(dados['URL'] == "retornaEPC"):
 				retornaEPC(con)
+			elif(dados['URL'] == "comecaQuali"):
+				qualificatorio(con)
+
 		else:
 			print("Não é um POST e nem um GET")
 		print ('requisição finalizada!')
