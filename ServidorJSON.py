@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 from __future__ import print_function
 from datetime import datetime
-import mercury, time, socket, sys, time, os, json
+from LeituraCarros import leituraCarro
+import mercury, time, socket, sys, time, os, json, timeit
 
 HOST=''
-PORT=2020
+PORT=5022
 portaSerial = ""
 baud = 0
 regiao = ""
@@ -14,6 +15,8 @@ readPower = 0
 voltas = 0
 tempoMin = 0
 tempoQuali = 0
+dadosDaLeitura = []
+cicloLeitura = 0
 
 def iniciaLeitor():
 	global portaSerial, baud, regiao, antena, protocolo, readPower
@@ -36,29 +39,72 @@ def dadosCorrida(con, arqJson):
 	voltas = int(arqJson['Voltas'])
 	tempoQuali = int(arqJson['Quali'])*60
 	tempoMin = int(arqJson['TempoMin'])*60
-	stringzona = '{"URL":"dadosCorrida", "return":"OK"}'
-	preparacaoEnvio = stringzona + "\n"
+	mensagem = '{"URL":"dadosCorrida", "return":"OK"}'
+	preparacaoEnvio = mensagem + "\n"
 	con.sendall(bytes(preparacaoEnvio.encode('utf-8')))
 
 def dadosLeitura(epc, rssi, date):
-	print (epc, rssi, date)
+	global dadosDaLeitura
+	leitura = leituraCarro(epc, rssi, date)
+	dadosDaLeitura.append(leitura)
 
+def refinaEnviaDado(cicloLeitura):
+	global dadosDaLeitura
+	arrayRefinado = []
+	for x in range(len(dadosDaLeitura)):
+		if (len(arrayRefinado)==0):
+			arrayRefinado.append(dadosDaLeitura[x])
+		else:
+			i = 0
+			for y in range(len(arrayRefinado)):
+				if(dadosDaLeitura[x].epc == arrayRefinado[y].epc):
+					i=1
+					if (dadosDaLeitura[x].rssi > arrayRefinado[y].rssi):
+						arrayRefinado[y] = dadosDaLeitura[x]
+			if(i==0):
+				arrayRefinado.append(dadosDaLeitura[x])
+	preparajson = '{'
+	for z in range(len(arrayRefinado)):
+	    dadoEpc = str(arrayRefinado[z].epc)
+	    dadoRssi = str(arrayRefinado[z].rssi)
+	    dadoTempo = str(arrayRefinado[z].tempo)
+	    preparajson = preparajson + '"CARRO'+str(z)+ '":"' + dadoEpc + '", "RSSI'+str(z)+ '":"' + dadoRssi + '", "TEMPO'+str(z)+ '":"' + dadoTempo + '", '
+	    #print(preparajson)
+	preparajson = preparajson + '"CicloLeitura":"' + str(cicloLeitura) + '", '
+	size = len(preparajson)
+	remove = preparajson[:size - 2]
+	#print(remove)
+	preparajson = remove
+	preparajson = preparajson +'}'
+	preparajson = preparajson +	"\n"
+	print(preparajson)
+	con.sendall(bytes(preparajson.encode('utf-8')))
+						
 
 def qualificatorio(con):
+	global dadosDaLeitura, tempoQuali, cicloLeitura
 	reader = iniciaLeitor()
-	global tempoQuali
-	while (tempoQuali>0):
+	cicloLeitura = 0
+	while (tempoQuali>=0):
 		reader.start_reading(lambda tag: dadosLeitura(tag.epc, tag.rssi, datetime.fromtimestamp(tag.timestamp)))
-		#quali = list(map(reader.start_reading(lambda t: t.epc, t.rssi, datetime.fromtimestamp(t.timestamp))))
-		#reader.start_reading(lambda tag: print(tag.epc, tag.antenna, tag.read_count, tag.rssi, datetime.fromtimestamp(tag.timestamp)))
 		time.sleep(tempoMin*0.2) # O sensor irá ficar lendo por 20% do tempo minimo de volta
 		reader.stop_reading()
-		for x in range(len(quali)):
-			print(str(quali[x]))
-		time.sleep(tempoMin*0.8) # O sensor irá ficar sem ler por 80% do tempo minimo de volta
+		#time.sleep(tempoMin*0.8) # O sensor irá ficar sem ler por 80% do tempo minimo de volta
 		tempoQuali = tempoQuali - tempoMin
+		inicio = timeit.default_timer()
+		refinaEnviaDado(cicloLeitura)
+		fim = timeit.default_timer()
+		print ('duracao: %f' % (fim - inicio))
+		novoTempo = tempoMin*0.8 - (fim - inicio)
+		time.sleep(novoTempo)
+		cicloLeitura = cicloLeitura + 1
 	print ("acabou o qualificatorio")
+	acabouQuali(con)
 
+def acabouQuali(con):
+	alerta = '{"URL":"finalQuali", "status":"acabou"}'
+	preparacaoEnvio = alerta + "\n"
+	con.sendall(bytes(preparacaoEnvio.encode('utf-8')))
 
 def retornaEPC(con):
 	reader = iniciaLeitor()
