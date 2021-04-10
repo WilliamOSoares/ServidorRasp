@@ -5,7 +5,7 @@ from LeituraCarros import leituraCarro
 import mercury, time, socket, sys, time, os, json, timeit
 
 HOST=''
-PORT=5022
+PORT=5021
 portaSerial = ""
 baud = 0
 regiao = ""
@@ -45,6 +45,7 @@ def dadosCorrida(con, arqJson):
 
 def dadosLeitura(epc, rssi, date):
 	global dadosDaLeitura
+	print(epc,rssi,date)
 	leitura = leituraCarro(epc, rssi, date)
 	dadosDaLeitura.append(leitura)
 
@@ -63,6 +64,7 @@ def refinaEnviaDado(cicloLeitura):
 						arrayRefinado[y] = dadosDaLeitura[x]
 			if(i==0):
 				arrayRefinado.append(dadosDaLeitura[x])
+	dadosDaLeitura = []
 	preparajson = '{'
 	for z in range(len(arrayRefinado)):
 	    dadoEpc = str(arrayRefinado[z].epc)
@@ -90,14 +92,22 @@ def qualificatorio(con):
 		time.sleep(tempoMin*0.2) # O sensor irá ficar lendo por 20% do tempo minimo de volta
 		reader.stop_reading()
 		#time.sleep(tempoMin*0.8) # O sensor irá ficar sem ler por 80% do tempo minimo de volta
-		tempoQuali = tempoQuali - tempoMin
-		inicio = timeit.default_timer()
-		refinaEnviaDado(cicloLeitura)
-		fim = timeit.default_timer()
-		print ('duracao: %f' % (fim - inicio))
-		novoTempo = tempoMin*0.8 - (fim - inicio)
-		time.sleep(novoTempo)
-		cicloLeitura = cicloLeitura + 1
+		if (tempoQuali==0):
+			inicio = timeit.default_timer()
+			refinaEnviaDado(cicloLeitura)
+			fim = timeit.default_timer()
+			time.sleep(10)
+			cicloLeitura = cicloLeitura + 1
+			tempoQuali = tempoQuali - tempoMin
+		else:
+			inicio = timeit.default_timer()
+			refinaEnviaDado(cicloLeitura)
+			fim = timeit.default_timer()
+			print ('duracao: %f' % (fim - inicio))
+			novoTempo = tempoMin*0.8 - (fim - inicio)
+			time.sleep(novoTempo)
+			cicloLeitura = cicloLeitura + 1
+			tempoQuali = tempoQuali - tempoMin
 	print ("acabou o qualificatorio")
 	acabouQuali(con)
 
