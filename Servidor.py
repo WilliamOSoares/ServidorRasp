@@ -18,7 +18,7 @@ tempoMin = 0
 tempoQuali = 0
 dadosDaLeitura = []
 cicloLeitura = 0
-length_max = 5
+length_max = 0
 trava = BoundedSemaphore(1)
 online = True
 reader = mercury.Reader("tmr:///dev/ttyUSB0", baudrate=230400)
@@ -30,7 +30,7 @@ def iniciaLeitor():
 	reader.set_read_plan([antena], protocolo, read_power=readPower)
 	return reader
 
-def configLeitor(arqJson):
+def configLeitor(con, arqJson):
 	global portaSerial, baud, regiao, antena, protocolo, readPower
 	portaSerial = arqJson['portaSerial']
 	baud = int(arqJson['baudrate'])
@@ -38,55 +38,49 @@ def configLeitor(arqJson):
 	antena = int(arqJson['antena'])
 	protocolo = arqJson['protocolo']
 	readPower = int(arqJson['power'])
+	mensagem = '{"URL":"configLeitor", "return":"OK"}'
+	preparacaoEnvio = mensagem + "\n"
+	con.sendall(bytes(preparacaoEnvio.encode('utf-8')))
 
 def dadosCorrida(con, arqJson):
-	global voltas, tempoMin, tempoQuali
+	global voltas, tempoMin, tempoQuali, length_max
 	voltas = int(arqJson['Voltas'])
 	tempoQuali = int(arqJson['Quali'])*60
 	tempoMin = int(arqJson['TempoMin'])*60
 	mensagem = '{"URL":"dadosCorrida", "return":"OK"}'
+	length_max = int(arqJson['CarrosQuant'])
 	preparacaoEnvio = mensagem + "\n"
 	con.sendall(bytes(preparacaoEnvio.encode('utf-8')))
 
 def dadosLeitura(epc, rssi, date):
 	global dadosDaLeitura, length_max
-	#print(epc,rssi,date)
-	if(len(dadosDaLeitura)<length_max):
+	if(len(dadosDaLeitura)==0):
 		leitura = leituraCarro(epc, rssi, date)
 		dadosDaLeitura.append(leitura)
-	#else:
-	#	print("Dado descartado")
+	elif(len(dadosDaLeitura)<length_max):
+		for x in range(len(dadosDaLeitura)):
+			if(dadosDaLeitura[x].epc != epc):
+				leitura = leituraCarro(epc, rssi, date)
+				dadosDaLeitura.append(leitura)
+			
 
 def refinaEnviaDado(cicloLeitura):
 	global dadosDaLeitura
-	arrayRefinado = []
-	if(len(dadosDaLeitura)>0):
-		for x in range(len(dadosDaLeitura)):
-			if (len(arrayRefinado)==0):
-				arrayRefinado.append(dadosDaLeitura[x])
-			else:
-				i = 0
-				for y in range(len(arrayRefinado)):
-					if(dadosDaLeitura[x].epc == arrayRefinado[y].epc):
-						i=1
-				if(i==0):
-					arrayRefinado.append(dadosDaLeitura[x])
-		dadosDaLeitura = []
+	if(len(dadosDaLeitura)>0):		
 		preparajson = '{'
-		for z in range(len(arrayRefinado)):
-		    dadoEpc = str(arrayRefinado[z].epc)
-		    dadoRssi = str(arrayRefinado[z].rssi)
-		    dadoTempo = str(arrayRefinado[z].tempo)
+		for z in range(len(dadosDaLeitura)):
+		    dadoEpc = str(dadosDaLeitura[z].epc)
+		    dadoRssi = str(dadosDaLeitura[z].rssi)
+		    dadoTempo = str(dadosDaLeitura[z].tempo)
 		    preparajson = preparajson + '"CARRO'+str(z)+ '":"' + dadoEpc + '", "RSSI'+str(z)+ '":"' + dadoRssi + '", "TEMPO'+str(z)+ '":"' + dadoTempo + '", '
-		    #print(preparajson)
 		preparajson = preparajson + '"CicloLeitura":"' + str(cicloLeitura) + '", '
 		size = len(preparajson)
 		remove = preparajson[:size - 2]
-		#print(remove)
 		preparajson = remove
 		preparajson = preparajson +'}'
 		preparajson = preparajson +	"\n"
 		print(preparajson)
+		dadosDaLeitura = []
 		con.sendall(bytes(preparajson.encode('utf-8')))
 		return True
 	else:
@@ -94,65 +88,53 @@ def refinaEnviaDado(cicloLeitura):
 
 def produtor():
 	global dadosDaLeitura, tempoQuali, cicloLeitura, trava, online, reader
-	reader = iniciaLeitor()
-	while online:
-		print("produzindo")
-		trava.acquire()	
-		print("produzindo travado")
-		if(online):
-			reader.start_reading(lambda tag: dadosLeitura(tag.epc, tag.rssi, datetime.fromtimestamp(tag.timestamp)))
-			time.sleep(1)
-			reader.stop_reading()
-		trava.release()
+	while True:	
+		reader = iniciaLeitor()
+		while online:
+			print("produzindo")
+			trava.acquire()	
+			print("produzindo travado")
+			if(online):
+				reader.start_reading(lambda tag: dadosLeitura(tag.epc, tag.rssi, datetime.fromtimestamp(tag.timestamp)))
+				time.sleep(1)
+				reader.stop_reading()
+			trava.release()
 
 def consumidor():
 	global dadosDaLeitura, tempoQuali, cicloLeitura, trava, online
-	while online:
-		print("consumindo")
-		trava.acquire()	
-		print("consumindo travado")
-		if(online):
-			if(refinaEnviaDado(cicloLeitura)):
-				cicloLeitura = cicloLeitura + 1
-		trava.release()				
+	while True:	
+		while online:
+			print("consumindo")
+			trava.acquire()	
+			print("consumindo travado")
+			if(online):
+				if(refinaEnviaDado(cicloLeitura)):
+					cicloLeitura+=1
+			trava.release()
 
 def qualificatorio(con, produtor, consumidor):
 	global dadosDaLeitura, tempoQuali, cicloLeitura, trava, online
 	reader = iniciaLeitor()
 	cicloLeitura = 0
-	
+	tempo = tempoQuali
 	produtor.start()
 	consumidor.start()
-	while (tempoQuali>=0):
-		print("Entrou no while para esperar")
-		time.sleep(1)
-		print("Entrou esperou 1 segundo")
+	ini = time.time()
+	while (tempo>0):
 		time.sleep(5)
-		print("Entrou esperou 6 segundo")
+		fim = time.time()
+		if ((fim-ini)>=tempo):
+			tempo=0
+		print (fim-ini)	
+	if (tempo==0):
 		time.sleep(5)
-		print("Entrou esperou 11 segundo")
-		time.sleep(5)
-		print("Entrou esperou 16 segundo")
-		time.sleep(5)
-		print("Entrou esperou 21 segundo")
-		time.sleep(5)
-		print("Entrou esperou 26 segundo")
-		time.sleep(5)
-		print("Entrou esperou 31 segundo")		
-		if (tempoQuali==0):
-			time.sleep(10)
-			tempoQuali = tempoQuali - tempoMin
-		else:
-			tempoQuali = tempoQuali - tempoMin
 	trava.acquire()
 	online = False
 	trava.release()
 	print ("acabou o qualificatorio")
-	acabouQuali(con)
-
-def acabouQuali(con):
-	alerta = '{"URL":"finalQuali", "status":"acabou"}'
+	alerta = '{"URL":"finalQuali", "status":"acabou", "CicloLeitura":"' + str(cicloLeitura) + '"}'
 	preparacaoEnvio = alerta + "\n"
+	print (preparacaoEnvio)
 	con.sendall(bytes(preparacaoEnvio.encode('utf-8')))
 
 def retornaEPC(con):
@@ -161,18 +143,40 @@ def retornaEPC(con):
 	preparajson = '{'
 	for x in range(len(tags)):
 	    dado = str(tags[x])
-	    print(dado)
 	    preparajson = preparajson + '"EPC'+str(x)+ '":"' + dado + '", '
-	    print(preparajson)
 	
 	size = len(preparajson)
 	remove = preparajson[:size - 2]
-	print(remove)
 	preparajson = remove
 	preparajson = preparajson +'}'
 	preparajson = preparajson +	"\n"
 	print(preparajson)
 	con.sendall(bytes(preparajson.encode('utf-8')))
+
+def corrida(con, produtor, consumidor):
+	global dadosDaLeitura, tempoQuali, cicloLeitura, trava, online, voltas
+	reader = iniciaLeitor()
+	cicloLeitura = 0
+	time.sleep(5)
+	online = True
+	tempoCorrida = tempoQuali*voltas
+	ini = time.time()
+	while (tempoCorrida>0):
+		time.sleep(5)
+		fim = time.time()
+		if ((fim-ini)>=tempoCorrida):
+			tempoCorrida=0
+		print (fim-ini)	
+	if (tempoCorrida==0):
+		time.sleep(5)
+	trava.acquire()
+	online = False
+	trava.release()
+	print ("acabou a corrida")
+	alerta = '{"URL":"finalCorrida", "status":"acabou", "CicloLeitura":"' + str(cicloLeitura) + '"}'
+	preparacaoEnvio = alerta + "\n"
+	print (preparacaoEnvio)
+	con.sendall(bytes(preparacaoEnvio.encode('utf-8')))
 
 def atende(con, produtor, consumidor):
 	while True:
@@ -183,7 +187,7 @@ def atende(con, produtor, consumidor):
 		dados = json.loads(recb)
 		if(dados['METODO'] == "POST"):
 			if(dados['URL'] == "configLeitor"):
-				configLeitor(dados)
+				configLeitor(con, dados)
 		elif(dados['METODO'] == "GET"):
 			if(dados['URL'] == "dadosCorrida"):
 				dadosCorrida(con, dados)
@@ -191,6 +195,8 @@ def atende(con, produtor, consumidor):
 				retornaEPC(con)
 			elif(dados['URL'] == "comecaQuali"):
 				qualificatorio(con, produtor, consumidor)
+			elif(dados['URL'] == "comecaCorrida"):
+				corrida(con, produtor, consumidor)
 
 		else:
 			print("Não é um POST e nem um GET")
