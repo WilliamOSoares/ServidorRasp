@@ -1,10 +1,25 @@
+'''
+//Servidor Autorama com leitor RFID//
+/*******************************************************************************
+Autores: Víctor César da Rocha Bastos e William Oliveira Soares
+Componente Curricular: MI de Concorrência e Conectividade
+Concluido em: 25/04/2021
+Declaro que este código foi elaborado por nós de forma coletiva e não contém nenhum
+trecho de código de outro colega ou de outro autor, tais como provindos de livros e
+apostilas, e páginas ou documentos eletrônicos da Internet. Qualquer trecho de código
+de outra autoria que não seja a nossa está destacado com uma citação para o autor e a fonte
+do código, e estou ciente que estes trechos não serão considerados para fins de avaliação.
+***************************************************************************************/
+'''
 #!/usr/bin/env python3
 from __future__ import print_function
 from datetime import datetime
 from LeituraCarros import leituraCarro
 from threading import *
 import mercury, time, socket, sys, time, os, json, timeit
-
+'''
+* Declarações das variáveis globais que serão alteradas e pegas durante a chamada dos métodos.
+'''
 HOST=''
 PORT=5021
 portaSerial = ""
@@ -24,6 +39,9 @@ online = False
 threadInit = True
 reader = mercury.Reader("tmr:///dev/ttyUSB0", baudrate=230400)
 
+'''
+* Inicia o leitor com as configurações fornecidas pelo cliente.
+'''
 def iniciaLeitor():
 	global portaSerial, baud, regiao, antena, protocolo, readPower
 	reader = mercury.Reader(portaSerial, baudrate=baud)
@@ -31,6 +49,10 @@ def iniciaLeitor():
 	reader.set_read_plan([antena], protocolo, read_power=readPower)
 	return reader
 
+'''
+* Salva os dados da configuração do leitor de acordo com os dados fornecidos pelo cliente.
+* Como também retorna o status final de execução.
+'''
 def configLeitor(con, arqJson):
 	global portaSerial, baud, regiao, antena, protocolo, readPower
 	portaSerial = arqJson['portaSerial']
@@ -43,6 +65,10 @@ def configLeitor(con, arqJson):
 	preparacaoEnvio = mensagem + "\n"
 	con.sendall(bytes(preparacaoEnvio.encode('utf-8')))
 
+'''
+* Salva os dados da configuração da corrida e do qualificatório de acordo com os dados fornecidos pelo cliente.
+* Como também retorna o status final de execução.
+'''
 def dadosCorrida(con, arqJson):
 	global voltas, tempoMin, tempoQuali, length_max
 	voltas = int(arqJson['Voltas'])
@@ -53,6 +79,12 @@ def dadosCorrida(con, arqJson):
 	preparacaoEnvio = mensagem + "\n"
 	con.sendall(bytes(preparacaoEnvio.encode('utf-8')))
 
+'''
+* Método auxiliar chamado pela thread produtora de dados, 
+* onde os dados da leitura são colocados em um vetor,
+* este vetor tem uma quantidade máxima de corredores e
+* dentro desse vetor não pode haver EPCs duplicadas.
+'''
 def dadosLeitura(epc, rssi, date):
 	global dadosDaLeitura, length_max
 	bit = True
@@ -67,6 +99,12 @@ def dadosLeitura(epc, rssi, date):
 			leitura = leituraCarro(epc, rssi, date)
 			dadosDaLeitura.append(leitura)
 
+'''
+* Método auxiliar chamado pela thread consumidora de dados,
+* Onde é pego os dados do vetor do produtor, com eles,
+* é produzido um JSON "manualmente" e preparado para o envio
+* para o cliente e logo em seguida, é enviado.
+'''
 def refinaEnviaDado(cicloLeitura):
 	global dadosDaLeitura
 	if(len(dadosDaLeitura)>0):		
@@ -89,6 +127,9 @@ def refinaEnviaDado(cicloLeitura):
 	else:
 		return False
 
+'''
+* Thread produtora, que faz leituras constante das tags com o leitor RFID.
+'''
 def produtor():
 	global dadosDaLeitura, tempoQuali, cicloLeitura, trava, online, reader
 	while True:	
@@ -103,6 +144,9 @@ def produtor():
 				reader.stop_reading()
 			trava.release()
 
+'''
+* Thead produtora, que monta o JSON e envia para o cliente.
+'''
 def consumidor():
 	global dadosDaLeitura, tempoQuali, cicloLeitura, trava, online
 	while True:	
@@ -115,13 +159,20 @@ def consumidor():
 					cicloLeitura+=1
 			trava.release()
 
+'''
+* Método de iniciar as threads depois de criadas, mas deixando paradas.
+'''
 def iniciaThread():
 	global threadInit
 	produtor.start()
 	consumidor.start()
 	threadInit = False
 
-
+'''
+* Método do qualificatorio, onde as 2 threads são acordas até o tempo do qualificatório
+* fornecido pelo cliente acabar, após o término do tempo, as 2 threads são colocas para 
+* dormir e é enviado ao cliente que o qualificatório acabou. 
+'''
 def qualificatorio(con, produtor, consumidor):
 	global dadosDaLeitura, tempoQuali, cicloLeitura, trava, online
 	reader = iniciaLeitor()
@@ -147,6 +198,10 @@ def qualificatorio(con, produtor, consumidor):
 	print (preparacaoEnvio)
 	con.sendall(bytes(preparacaoEnvio.encode('utf-8')))
 
+'''
+* Método que retorna os EPCs da tags existentes para o cliente.
+* Deve haver no mínimo 1 tag abaixo do leitor.
+'''
 def retornaEPC(con):
 	reader = iniciaLeitor()
 	tags = list(map(lambda t: t.epc, reader.read()))
@@ -163,13 +218,18 @@ def retornaEPC(con):
 	print(preparajson)
 	con.sendall(bytes(preparajson.encode('utf-8')))
 
+'''
+* Método da corrida, onde as 2 threads são acordas até o tempo mínimo de volta + 10 segundos
+* multiplicado pelo número de voltas acabar, após o término do tempo, as 2 threads são colocas 
+* para dormir e é enviado ao cliente que a corrida acabou. 
+'''
 def corrida(con, produtor, consumidor):
-	global dadosDaLeitura, tempoQuali, cicloLeitura, trava, online, voltas
+	global dadosDaLeitura, tempoMin, cicloLeitura, trava, online, voltas
 	reader = iniciaLeitor()
 	cicloLeitura = 0
 	time.sleep(5)
 	online = True
-	tempoCorrida = 80*voltas
+	tempoCorrida = (tempoMin+10)*voltas
 	ini = time.time()
 	while (tempoCorrida>0):
 		time.sleep(5)
@@ -188,6 +248,9 @@ def corrida(con, produtor, consumidor):
 	print (preparacaoEnvio)
 	con.sendall(bytes(preparacaoEnvio.encode('utf-8')))
 
+'''
+* Método que repassa para os demais métodos qual tipo de ação que o cliente deseja executar.
+'''
 def atende(con, produtor, consumidor):
 	global threadInit
 	while True:
@@ -215,6 +278,10 @@ def atende(con, produtor, consumidor):
 			print("Não é um POST e nem um GET")
 		print ('requisição finalizada!')
 
+'''
+* Início de execução do código, onde é definido quais métodos serão threads, 
+* onde é feito a conexão com o cliente, onde também é atendido todas as requisições do cliente.
+'''
 produtor = Thread(target=produtor)
 consumidor = Thread(target=consumidor)
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
