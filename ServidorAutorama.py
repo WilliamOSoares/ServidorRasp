@@ -302,3 +302,4 @@ while 1:
 	
 print ('Finalizando conexao do cliente', cliente)
 con.close()
+#fim :)
