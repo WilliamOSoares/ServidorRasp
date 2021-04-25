@@ -35,9 +35,10 @@ dadosDaLeitura = []
 cicloLeitura = 0
 length_max = 0
 trava = BoundedSemaphore(1)
-online = False
-threadInit = True
-reader = mercury.Reader("tmr:///dev/ttyUSB0", baudrate=230400)
+online = False # False = pausar as threads, True = continuar as threads
+threadInit = True #Lógica inversa (True = não está iniciada)
+conectado = True #Lógica inversa (True = cliente não conectado)
+reader = mercury.Reader("tmr:///dev/ttyUSB0", baudrate=230400) #Inicialização do reader para ele ser um objeto da mercury
 
 '''
 * Inicia o leitor com as configurações fornecidas pelo cliente.
@@ -54,7 +55,7 @@ def iniciaLeitor():
 * Como também retorna o status final de execução.
 '''
 def configLeitor(con, arqJson):
-	global portaSerial, baud, regiao, antena, protocolo, readPower
+	global portaSerial, baud, regiao, antena, protocolo, readPower, conectado
 	portaSerial = arqJson['portaSerial']
 	baud = int(arqJson['baudrate'])
 	regiao = arqJson['regiao']
@@ -63,21 +64,29 @@ def configLeitor(con, arqJson):
 	readPower = int(arqJson['power'])
 	mensagem = '{"URL":"configLeitor", "return":"OK"}'
 	preparacaoEnvio = mensagem + "\n"
-	con.sendall(bytes(preparacaoEnvio.encode('utf-8')))
+	try:
+		con.sendall(bytes(preparacaoEnvio.encode('utf-8')))
+	except (socket.error):
+		conectado = True
+		print ("Conexão perdida")
 
 '''
 * Salva os dados da configuração da corrida e do qualificatório de acordo com os dados fornecidos pelo cliente.
 * Como também retorna o status final de execução.
 '''
 def dadosCorrida(con, arqJson):
-	global voltas, tempoMin, tempoQuali, length_max
+	global voltas, tempoMin, tempoQuali, length_max, conectado
 	voltas = int(arqJson['Voltas'])
 	tempoQuali = int(arqJson['Quali'])*60
 	tempoMin = int(arqJson['TempoMin'])*60
 	mensagem = '{"URL":"dadosCorrida", "return":"OK"}'
 	length_max = int(arqJson['CarrosQuant'])
 	preparacaoEnvio = mensagem + "\n"
-	con.sendall(bytes(preparacaoEnvio.encode('utf-8')))
+	try:
+		con.sendall(bytes(preparacaoEnvio.encode('utf-8')))
+	except (socket.error):
+		conectado = True
+		print ("Conexão perdida")
 
 '''
 * Método auxiliar chamado pela thread produtora de dados, 
@@ -106,7 +115,7 @@ def dadosLeitura(epc, rssi, date):
 * para o cliente e logo em seguida, é enviado.
 '''
 def refinaEnviaDado(cicloLeitura):
-	global dadosDaLeitura
+	global dadosDaLeitura, conectado
 	if(len(dadosDaLeitura)>0):		
 		preparajson = '{'
 		for z in range(len(dadosDaLeitura)):
@@ -122,7 +131,11 @@ def refinaEnviaDado(cicloLeitura):
 		preparajson = preparajson +	"\n"
 		print(preparajson)
 		dadosDaLeitura = []
-		con.sendall(bytes(preparajson.encode('utf-8')))
+		try:
+			con.sendall(bytes(preparajson.encode('utf-8')))
+		except (socket.error):
+			conectado = True
+			print ("Conexão perdida")
 		return True
 	else:
 		return False
@@ -174,7 +187,7 @@ def iniciaThread():
 * dormir e é enviado ao cliente que o qualificatório acabou. 
 '''
 def qualificatorio(con, produtor, consumidor):
-	global dadosDaLeitura, tempoQuali, cicloLeitura, trava, online
+	global dadosDaLeitura, tempoQuali, cicloLeitura, trava, online, conectado
 	reader = iniciaLeitor()
 	cicloLeitura = 0
 	tempo = tempoQuali
@@ -187,6 +200,11 @@ def qualificatorio(con, produtor, consumidor):
 		if ((fim-ini)>=tempo):
 			tempo=0
 		print (fim-ini)	
+		if (conectado):
+			trava.acquire()
+			online = False
+			trava.release()
+			tempo=0
 	if (tempo==0):
 		time.sleep(5)
 	trava.acquire()
@@ -196,13 +214,18 @@ def qualificatorio(con, produtor, consumidor):
 	alerta = '{"URL":"finalQuali", "status":"acabou", "CicloLeitura":"' + str(cicloLeitura) + '"}'
 	preparacaoEnvio = alerta + "\n"
 	print (preparacaoEnvio)
-	con.sendall(bytes(preparacaoEnvio.encode('utf-8')))
+	try:
+		con.sendall(bytes(preparacaoEnvio.encode('utf-8')))
+	except (socket.error):
+		conectado = True
+		print ("Conexão perdida")
 
 '''
 * Método que retorna os EPCs da tags existentes para o cliente.
 * Deve haver no mínimo 1 tag abaixo do leitor.
 '''
 def retornaEPC(con):
+	global conectado
 	reader = iniciaLeitor()
 	tags = list(map(lambda t: t.epc, reader.read()))
 	preparajson = '{'
@@ -216,7 +239,11 @@ def retornaEPC(con):
 	preparajson = preparajson +'}'
 	preparajson = preparajson +	"\n"
 	print(preparajson)
-	con.sendall(bytes(preparajson.encode('utf-8')))
+	try:
+		con.sendall(bytes(preparajson.encode('utf-8')))
+	except (socket.error):
+		conectado = True
+		print ("Conexão perdida")
 
 '''
 * Método da corrida, onde as 2 threads são acordas até o tempo mínimo de volta + 10 segundos
@@ -224,7 +251,7 @@ def retornaEPC(con):
 * para dormir e é enviado ao cliente que a corrida acabou. 
 '''
 def corrida(con, produtor, consumidor):
-	global dadosDaLeitura, tempoMin, cicloLeitura, trava, online, voltas
+	global dadosDaLeitura, tempoMin, cicloLeitura, trava, online, voltas, conectado
 	reader = iniciaLeitor()
 	cicloLeitura = 0
 	time.sleep(5)
@@ -237,6 +264,11 @@ def corrida(con, produtor, consumidor):
 		if ((fim-ini)>=tempoCorrida):
 			tempoCorrida=0
 		print (fim-ini)	
+		if (conectado):
+			trava.acquire()
+			online = False
+			trava.release()
+			tempoCorrida=0
 	if (tempoCorrida==0):
 		time.sleep(5)
 	trava.acquire()
@@ -246,22 +278,34 @@ def corrida(con, produtor, consumidor):
 	alerta = '{"URL":"finalCorrida", "status":"acabou", "CicloLeitura":"' + str(cicloLeitura) + '"}'
 	preparacaoEnvio = alerta + "\n"
 	print (preparacaoEnvio)
-	con.sendall(bytes(preparacaoEnvio.encode('utf-8')))
+	try:
+		con.sendall(bytes(preparacaoEnvio.encode('utf-8')))
+	except (socket.error):
+		conectado = True
+		print ("Conexão perdida")
 
 '''
 * Método que repassa para os demais métodos qual tipo de ação que o cliente deseja executar.
 '''
 def atende(con, produtor, consumidor):
-	global threadInit
-	while True:
-		print ('Iniciando...')
+	global threadInit, conectado
+	print ('Iniciando...')
+	try:
 		recb = con.recv(1024).decode('utf-8')
-		if not recb: break
+	except (socket.error):
+		if (conectado):
+			print ("Conexão finalizada")
+		else:
+			conectado = True
+			print ("Conexão perdida")
+	if (not(conectado)):
 		print (recb)
 		dados = json.loads(recb)
 		if(dados['METODO'] == "POST"):
 			if(dados['URL'] == "configLeitor"):
 				configLeitor(con, dados)
+			elif(dados['URL'] == "encerra"):
+				encerraConexao(con)
 		elif(dados['METODO'] == "GET"):
 			if(dados['URL'] == "dadosCorrida"):
 				dadosCorrida(con, dados)
@@ -273,10 +317,27 @@ def atende(con, produtor, consumidor):
 				qualificatorio(con, produtor, consumidor)
 			elif(dados['URL'] == "comecaCorrida"):
 				corrida(con, produtor, consumidor)
-
-		else:
-			print("Não é um POST e nem um GET")
+			else:
+				print("Não é um POST e nem um GET")
 		print ('requisição finalizada!')
+'''
+* Conecta com o proximo cliente.
+'''
+def conectarCliente(s):
+	global conectado, con, cliente
+	conectado = False
+	s.listen(1)
+	con, cliente = s.accept()
+	print ('Concetado por', cliente)
+
+'''
+* Encerra conexão com o cliente.
+'''
+def encerraConexao(con):
+	global conectado
+	print ('Finalizando conexao do cliente')
+	con.close()
+	conectado = True
 
 '''
 * Início de execução do código, onde é definido quais métodos serão threads, 
@@ -285,6 +346,7 @@ def atende(con, produtor, consumidor):
 produtor = Thread(target=produtor)
 consumidor = Thread(target=consumidor)
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
 try:
 	print ("Server iniciado na porta -> ", PORT, socket.gethostname())
 	s.bind((HOST,PORT))
@@ -292,14 +354,32 @@ except socket.error :
 	print ("Nao foi possivel conectar a porta: ",PORT)
 	print (socket.error)
 	sys.exit(-1)
-
 s.listen(1)
 con, cliente = s.accept()
 print ('Concetado por', cliente)
+conectado = False
 
 while 1:
-	atende(con, produtor, consumidor)	
-	
-print ('Finalizando conexao do cliente', cliente)
-con.close()
+	try:
+		if(conectado):
+			conectarCliente(s)
+		else:
+			atende(con, produtor, consumidor)	
+	except (socket.error):
+		if (conectado):
+			print ("Conexão finalizada")
+		else:
+			print ("Conexão perdida")
+		conectado = True
+		online = False
+		voltas = 0
+		tempoMin = 0
+		tempoQuali = 0
+		dadosDaLeitura = []
+		cicloLeitura = 0
+		length_max = 0
+		online = False
+		threadInit = True
+		conectado = True
+
 #fim :)
