@@ -15,8 +15,13 @@ do código, e estou ciente que estes trechos não serão considerados para fins 
 from __future__ import print_function
 from datetime import datetime
 from LeituraCarros import leituraCarro
+from thread_botao import Botao
 from threading import *
 import mercury, time, socket, sys, time, os, json, timeit
+import RPi.GPIO as GPIO
+
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(18, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 '''
 * Declarações das variáveis globais que serão alteradas e pegas durante a chamada dos métodos.
 '''
@@ -38,7 +43,21 @@ trava = BoundedSemaphore(1)
 online = False # False = pausar as threads, True = continuar as threads
 threadInit = True #Lógica inversa (True = não está iniciada)
 conectado = True #Lógica inversa (True = cliente não conectado)
+bt = False # True = se o botão for apertado, False = se não
+envia = False # Se for True os dados são enviados
 reader = mercury.Reader("tmr:///dev/ttyUSB0", baudrate=230400) #Inicialização do reader para ele ser um objeto da mercury
+
+'''
+* Monitora o estado do botão.
+'''
+def monitor_botao():
+	global bt
+	while True:
+		input_state = GPIO.input(18)
+		if input_state == False:
+			bt = True
+			print("Botao apertado")
+		time.sleep(0.1)
 
 '''
 * Inicia o leitor com as configurações fornecidas pelo cliente.
@@ -78,7 +97,7 @@ def dadosCorrida(con, arqJson):
 	global voltas, tempoMin, tempoQuali, length_max, conectado
 	voltas = int(arqJson['Voltas'])
 	tempoQuali = int(arqJson['Quali'])*60
-	tempoMin = int(arqJson['TempoMin'])*60
+	tempoMin = int(arqJson['TempoMin'])
 	mensagem = '{"URL":"dadosCorrida", "return":"OK"}'
 	length_max = int(arqJson['CarrosQuant'])
 	preparacaoEnvio = mensagem + "\n"
@@ -95,18 +114,28 @@ def dadosCorrida(con, arqJson):
 * dentro desse vetor não pode haver EPCs duplicadas.
 '''
 def dadosLeitura(epc, rssi, date):
-	global dadosDaLeitura, length_max
+	global dadosDaLeitura, length_max, trava, envia, tempoMin
+	trava.acquire()	
+	verifica = False
 	bit = True
 	if(len(dadosDaLeitura)==0):
 		leitura = leituraCarro(epc, rssi, date)
 		dadosDaLeitura.append(leitura)
-	elif(len(dadosDaLeitura)<length_max):
+		envia = True
+	elif(len(dadosDaLeitura)>0):
 		for x in range(len(dadosDaLeitura)):
 			if(dadosDaLeitura[x].epc == epc):
+				envia = dadosDaLeitura[x].validaTempo(date, tempoMin)
+				if(verifica==False and envia==True):
+					verifica = True
 				bit = False
 		if(bit):
 			leitura = leituraCarro(epc, rssi, date)
 			dadosDaLeitura.append(leitura)
+			envia = True
+		if(verifica):
+			envia = True
+	trava.release()
 
 '''
 * Método auxiliar chamado pela thread consumidora de dados,
@@ -115,8 +144,9 @@ def dadosLeitura(epc, rssi, date):
 * para o cliente e logo em seguida, é enviado.
 '''
 def refinaEnviaDado(cicloLeitura):
-	global dadosDaLeitura, conectado
-	if(len(dadosDaLeitura)>0):		
+	global dadosDaLeitura, conectado, bt, trava, envia
+	trava.acquire()	
+	if(envia):		
 		preparajson = '{'
 		for z in range(len(dadosDaLeitura)):
 		    dadoEpc = str(dadosDaLeitura[z].epc)
@@ -124,60 +154,43 @@ def refinaEnviaDado(cicloLeitura):
 		    dadoTempo = str(dadosDaLeitura[z].tempo)
 		    preparajson = preparajson + '"CARRO'+str(z)+ '":"' + dadoEpc + '", "RSSI'+str(z)+ '":"' + dadoRssi + '", "TEMPO'+str(z)+ '":"' + dadoTempo + '", '
 		preparajson = preparajson + '"CicloLeitura":"' + str(cicloLeitura) + '", '
+		preparajson = preparajson + '"Botao":"' + str(bt) + '", '
+		if (bt):
+			bt = False
 		size = len(preparajson)
 		remove = preparajson[:size - 2]
 		preparajson = remove
 		preparajson = preparajson +'}'
 		preparajson = preparajson +	"\n"
 		print(preparajson)
-		dadosDaLeitura = []
+		envia = False
 		try:
 			con.sendall(bytes(preparajson.encode('utf-8')))
 		except (socket.error):
 			conectado = True
 			print ("Conexão perdida")
+		trava.release()
 		return True
 	else:
+		trava.release()
 		return False
 
-'''
-* Thread produtora, que faz leituras constante das tags com o leitor RFID.
-'''
-def produtor():
-	global dadosDaLeitura, tempoQuali, cicloLeitura, trava, online, reader
-	while True:	
-		reader = iniciaLeitor()
-		while online:
-			print("produzindo")
-			trava.acquire()	
-			print("produzindo travado")
-			if(online):
-				reader.start_reading(lambda tag: dadosLeitura(tag.epc, tag.rssi, datetime.fromtimestamp(tag.timestamp)))
-				time.sleep(1)
-				reader.stop_reading()
-			trava.release()
 
 '''
-* Thead produtora, que monta o JSON e envia para o cliente.
+* Thead Consumidora, que monta o JSON e envia para o cliente.
 '''
 def consumidor():
 	global dadosDaLeitura, tempoQuali, cicloLeitura, trava, online
 	while True:	
 		while online:
-			print("consumindo")
-			trava.acquire()	
-			print("consumindo travado")
-			if(online):
-				if(refinaEnviaDado(cicloLeitura)):
+			if(refinaEnviaDado(cicloLeitura)):
 					cicloLeitura+=1
-			trava.release()
 
 '''
 * Método de iniciar as threads depois de criadas, mas deixando paradas.
 '''
 def iniciaThread():
 	global threadInit
-	produtor.start()
 	consumidor.start()
 	threadInit = False
 
@@ -186,30 +199,36 @@ def iniciaThread():
 * fornecido pelo cliente acabar, após o término do tempo, as 2 threads são colocas para 
 * dormir e é enviado ao cliente que o qualificatório acabou. 
 '''
-def qualificatorio(con, produtor, consumidor):
-	global dadosDaLeitura, tempoQuali, cicloLeitura, trava, online, conectado
+def qualificatorio(con, consumidor):
+	global dadosDaLeitura, tempoQuali, cicloLeitura, trava, online, conectado, bt, envia
 	reader = iniciaLeitor()
 	cicloLeitura = 0
 	tempo = tempoQuali
 	time.sleep(5)
+	reader.start_reading(lambda tag: dadosLeitura(tag.epc, tag.rssi, datetime.fromtimestamp(tag.timestamp)))
 	online = True
 	ini = time.time()
 	while (tempo>0):
 		time.sleep(5)
+		print(bt)
 		fim = time.time()
 		if ((fim-ini)>=tempo):
 			tempo=0
+			reader.stop_reading()
 		print (fim-ini)	
 		if (conectado):
 			trava.acquire()
 			online = False
 			trava.release()
 			tempo=0
+			reader.stop_reading()
 	if (tempo==0):
-		time.sleep(5)
+		time.sleep(1)
 	trava.acquire()
 	online = False
 	trava.release()
+	dadosDaLeitura = []
+	envia = False
 	print ("acabou o qualificatorio")
 	alerta = '{"URL":"finalQuali", "status":"acabou", "CicloLeitura":"' + str(cicloLeitura) + '"}'
 	preparacaoEnvio = alerta + "\n"
@@ -250,30 +269,35 @@ def retornaEPC(con):
 * multiplicado pelo número de voltas acabar, após o término do tempo, as 2 threads são colocas 
 * para dormir e é enviado ao cliente que a corrida acabou. 
 '''
-def corrida(con, produtor, consumidor):
+def corrida(con, consumidor):
 	global dadosDaLeitura, tempoMin, cicloLeitura, trava, online, voltas, conectado
 	reader = iniciaLeitor()
 	cicloLeitura = 0
 	time.sleep(5)
+	reader.start_reading(lambda tag: dadosLeitura(tag.epc, tag.rssi, datetime.fromtimestamp(tag.timestamp)))
 	online = True
-	tempoCorrida = (tempoMin+10)*voltas
+	tempoCorrida = ((tempoMin*60)+10)*voltas
 	ini = time.time()
 	while (tempoCorrida>0):
 		time.sleep(5)
 		fim = time.time()
 		if ((fim-ini)>=tempoCorrida):
 			tempoCorrida=0
+			reader.stop_reading()
 		print (fim-ini)	
 		if (conectado):
 			trava.acquire()
 			online = False
 			trava.release()
 			tempoCorrida=0
+			reader.stop_reading()
 	if (tempoCorrida==0):
 		time.sleep(5)
 	trava.acquire()
 	online = False
-	trava.release()
+	trava.release()	
+	dadosDaLeitura = []
+	envia = False
 	print ("acabou a corrida")
 	alerta = '{"URL":"finalCorrida", "status":"acabou", "CicloLeitura":"' + str(cicloLeitura) + '"}'
 	preparacaoEnvio = alerta + "\n"
@@ -287,7 +311,7 @@ def corrida(con, produtor, consumidor):
 '''
 * Método que repassa para os demais métodos qual tipo de ação que o cliente deseja executar.
 '''
-def atende(con, produtor, consumidor):
+def atende(con, consumidor):
 	global threadInit, conectado
 	print ('Iniciando...')
 	try:
@@ -314,9 +338,9 @@ def atende(con, produtor, consumidor):
 			elif(dados['URL'] == "comecaQuali"):
 				if(threadInit):
 					iniciaThread();
-				qualificatorio(con, produtor, consumidor)
+				qualificatorio(con, consumidor)
 			elif(dados['URL'] == "comecaCorrida"):
-				corrida(con, produtor, consumidor)
+				corrida(con, consumidor)
 			else:
 				print("Não é um POST e nem um GET")
 		print ('requisição finalizada!')
@@ -343,8 +367,9 @@ def encerraConexao(con):
 * Início de execução do código, onde é definido quais métodos serão threads, 
 * onde é feito a conexão com o cliente, onde também é atendido todas as requisições do cliente.
 '''
-produtor = Thread(target=produtor)
 consumidor = Thread(target=consumidor)
+botao = Thread(target=monitor_botao)
+
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 try:
@@ -358,20 +383,18 @@ s.listen(1)
 con, cliente = s.accept()
 print ('Concetado por', cliente)
 conectado = False
-
+botao.start()
 while 1:
 	try:
 		if(conectado):
 			conectarCliente(s)
 		else:
-			atende(con, produtor, consumidor)	
+			atende(con, consumidor)	
 	except (socket.error):
 		if (conectado):
 			print ("Conexão finalizada")
 		else:
 			print ("Conexão perdida")
-		conectado = True
-		online = False
 		voltas = 0
 		tempoMin = 0
 		tempoQuali = 0

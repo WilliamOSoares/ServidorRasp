@@ -100,7 +100,7 @@ def dadosLeitura(epc, rssi, date):
 	if(len(dadosDaLeitura)==0):
 		leitura = leituraCarro(epc, rssi, date)
 		dadosDaLeitura.append(leitura)
-	elif(len(dadosDaLeitura)<length_max):
+	elif(len(dadosDaLeitura)>0): #<length_max):
 		for x in range(len(dadosDaLeitura)):
 			if(dadosDaLeitura[x].epc == epc):
 				bit = False
@@ -129,7 +129,7 @@ def refinaEnviaDado(cicloLeitura):
 		preparajson = remove
 		preparajson = preparajson +'}'
 		preparajson = preparajson +	"\n"
-		print(preparajson)
+		#print(preparajson)
 		dadosDaLeitura = []
 		try:
 			con.sendall(bytes(preparajson.encode('utf-8')))
@@ -148,12 +148,12 @@ def produtor():
 	while True:	
 		reader = iniciaLeitor()
 		while online:
-			print("produzindo")
+			print("p") #Prints auxiliares do produtor, sem eles os métodos não rodam
 			trava.acquire()	
-			print("produzindo travado")
+			print("t")
 			if(online):
 				reader.start_reading(lambda tag: dadosLeitura(tag.epc, tag.rssi, datetime.fromtimestamp(tag.timestamp)))
-				time.sleep(1)
+				time.sleep(0.1)
 				reader.stop_reading()
 			trava.release()
 
@@ -164,9 +164,9 @@ def consumidor():
 	global dadosDaLeitura, tempoQuali, cicloLeitura, trava, online
 	while True:	
 		while online:
-			print("consumindo")
+			print("c") #Prints auxiliares do produtor, sem eles os métodos não rodam
 			trava.acquire()	
-			print("consumindo travado")
+			print("t")
 			if(online):
 				if(refinaEnviaDado(cicloLeitura)):
 					cicloLeitura+=1
@@ -251,12 +251,12 @@ def retornaEPC(con):
 * para dormir e é enviado ao cliente que a corrida acabou. 
 '''
 def corrida(con, produtor, consumidor):
-	global dadosDaLeitura, tempoMin, cicloLeitura, trava, online, voltas, conectado
+	global dadosDaLeitura, tempoQuali, cicloLeitura, trava, online, voltas, conectado
 	reader = iniciaLeitor()
 	cicloLeitura = 0
 	time.sleep(5)
 	online = True
-	tempoCorrida = (tempoMin+10)*voltas
+	tempoCorrida = (tempoQuali+10)*voltas
 	ini = time.time()
 	while (tempoCorrida>0):
 		time.sleep(5)

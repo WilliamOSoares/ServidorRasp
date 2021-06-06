@@ -7,80 +7,15 @@ from datetime import datetime
 # An extremely simple HTTP server
 import socket, sys, time, os
 # Server runs on all IP addresses by default
-HOST=''
-#HOST = 'localhost'
-# 8080 can be used without root priviledges
-PORT=5021
-#BUFLEN=8192 # buffer size
 
-def crud():
-	arq = open('configInicial.txt','r')
-	req = arq.readline().strip("\n")
-	if(req == "configLeitor"):
-		configLeitor(arq)
-	else:
-		print("Deu ruim")
+epc1 = "b'E2000017221101241890547C'"
+clean = "b'"
+for i in range(len(epc1)):
+	for j in range(len(clean)):
+		epc1 =  epc1.replace(clean[j], '')
 
-def configLeitor(arq):
-	serial = arq.readline().strip("\n")
-	baud = int(arq.readline())
-	regiao = arq.readline().strip("\n")
-	antena = int(arq.readline())
-	gen = arq.readline().strip("\n")
-	power = int(arq.readline())
-	arq.close()
-	print(serial)
-	print(baud)
-	print(regiao)
-	print(antena)
-	print(gen)
-	print(power)
+print(epc1)
 
-crud()
-
-'''
-flname = 'configInicial.txt'
-arq = open(flname,'r')
-
-serial = arq.readline().strip("\n")
-baud = int(arq.readline())
-regiao = arq.readline().strip("\n")
-antena = int(arq.readline())
-gen = arq.readline().strip("\n")
-power = int(arq.readline())
-
-arq.close()
-
-print(serial)
-print(baud)
-print(regiao)
-print(antena)
-print(gen)
-print(power)
-
-if (req == "configInicial")
-	setarLeitor()
-
-
-reader = mercury.Reader(serial, baudrate=baud)
-reader.set_region(regiao)
-reader.set_read_plan([antena], gen, read_power=power)
-print(reader.read())
-
-arq2 = open("tagDiponivel.txt", "a")
-
-tags = list(map(lambda t: t.epc, reader.read()))
-array = []
-
-for x in range(len(tags)):
-    dado = str(tags[x])
-    print(dado)
-    array.append(dado+"\n")
-
-arq2.writelines(arry)
-
-arq2.close()
-'''
 sys.exit(-1)
 
 
