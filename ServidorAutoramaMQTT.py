@@ -88,7 +88,7 @@ def configLeitor():
 '''
 def dadosCorrida():
 	global voltas, tempoMin, tempoQuali, length_max
-	print("Voltas: "+voltas+" TempoQuali: "+tempoQuali+" TempoMin: "+tempoMin+" QuantiCarros: "+length_max)
+	print("Voltas: "+str(voltas)+" TempoQuali: "+str(tempoQuali)+" TempoMin: "+str(tempoMin)+" QuantiCarros: "+str(length_max))
 	ret = client.publish("Resposta/Config", "OK", 0)
 	print("published return="+str(ret))
 
@@ -312,7 +312,7 @@ def atende(consumidor):
 	elif(function == "PegaEPC"):
 		retornaEPC()
 	elif(function == "ComecaQuali"):
-		ret = client.publish("Resposta/Corrida", "Acabou", 0)
+		ret = client.publish("Resposta/Quali", "OK", 0)
 		print("published return="+str(ret))
 		simulaQuali()
 		'''
@@ -321,7 +321,7 @@ def atende(consumidor):
 		qualificatorio(consumidor)
 		'''
 	elif(function == "ComecaCorrida"):
-		ret = client.publish("Resposta/Corrida", "Acabou", 0)
+		ret = client.publish("Resposta/Corrida", "OK", 0)
 		print("published return="+str(ret))
 		simulaCorrida()
 		#corrida(consumidor)
