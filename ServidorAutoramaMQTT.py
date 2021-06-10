@@ -15,10 +15,12 @@ do código, e estou ciente que estes trechos não serão considerados para fins 
 from __future__ import print_function
 from datetime import datetime
 from LeituraCarros import leituraCarro
+from random import randint
 #from thread_botao import Botao
 from threading import *
 import time, socket, sys, time, os, json, timeit #, mercury
 import paho.mqtt.client as mqtt
+
 #import RPi.GPIO as GPIO
 
 '''
@@ -46,6 +48,252 @@ threadInit = True #Lógica inversa (True = não está iniciada)
 bt = False # True = se o botão for apertado, False = se não
 envia = False # Se for True os dados são enviados
 #reader = mercury.Reader("tmr:///dev/ttyUSB0", baudrate=230400) #Inicialização do reader para ele ser um objeto da mercury
+
+##############################################################################################################################
+def simulaQuali():
+	global dadosDaLeitura, tempoQuali, cicloLeitura
+	cicloLeitura = 0
+	tempo = tempoQuali
+	printar = 0
+	time.sleep(5)
+	epc1 = "b'E2000017221101241890547C'"
+	epc2 = "b'E20000172211012518905484'"
+	epc3 = "b'E20000172211013118905493'"
+	tempo1 = "2021-04-27 20:"+str(cicloLeitura)+":"+str(randint(10,59))+".622000"
+	tempo2 = "2021-04-27 20:"+str(cicloLeitura+1)+":"+str(randint(10,59))+".622000"
+	tempo3 = "2021-04-27 20:"+str(cicloLeitura+2)+":"+str(randint(10,59))+".622000"
+	if(cicloLeitura<=7):
+		tempo1 = "2021-04-27 20:0"+str(cicloLeitura)+":"+str(randint(10,59))+".622000"
+		tempo2 = "2021-04-27 20:0"+str(cicloLeitura+1)+":"+str(randint(10,59))+".622000"
+		tempo3 = "2021-04-27 20:0"+str(cicloLeitura+2)+":"+str(randint(10,59))+".622000"
+	elif(cicloLeitura==8):
+		tempo1 = "2021-04-27 20:0"+str(cicloLeitura)+":"+str(randint(10,59))+".622000"
+		tempo2 = "2021-04-27 20:0"+str(cicloLeitura+1)+":"+str(randint(10,59))+".622000"
+		tempo3 = "2021-04-27 20:"+str(cicloLeitura+2)+":"+str(randint(10,59))+".622000"
+	elif(cicloLeitura==9):
+		tempo1 = "2021-04-27 20:0"+str(cicloLeitura)+":"+str(randint(10,59))+".622000"
+		tempo2 = "2021-04-27 20:"+str(cicloLeitura+1)+":"+str(randint(10,59))+".622000"
+		tempo3 = "2021-04-27 20:"+str(cicloLeitura+2)+":"+str(randint(10,59))+".622000"
+	topic1= epc1
+	topic2= epc2
+	topic3= epc3
+	for i in range(len(topic1)):
+		for j in range(len(clean)):
+			topic1 =  topic1.replace(clean[j], '')
+	topico = "LeitorRFID/" + topic1
+	ret = client.publish(topico, epc1, 0)
+	print("published return="+str(ret))
+	topico = "LeitorRFID/" + topic1 + "/Tempo"
+	ret = client.publish(topico, tempo1, 0)
+	print("published return="+str(ret))
+	topico = "LeitorRFID/" + topic1 + "/Rssi"
+	ret = client.publish(topico, cicloLeitura*2, 0)
+	print("published return="+str(ret))
+	topico = "LeitorRFID/" + topic1 + "/Ciclo"
+	ret = client.publish(topico, str(cicloLeitura), 0)
+	print("published return="+str(ret))	
+	for i in range(len(topic2)):
+		for j in range(len(clean)):
+			topic2 =  topic2.replace(clean[j], '')
+	topico = "LeitorRFID/" + topic2
+	ret = client.publish(topico, epc2, 0)
+	print("published return="+str(ret))
+	topico = "LeitorRFID/" + topic2 + "/Tempo"
+	ret = client.publish(topico, tempo2, 0)
+	print("published return="+str(ret))
+	topico = "LeitorRFID/" + topic2 + "/Rssi"
+	ret = client.publish(topico, cicloLeitura*2, 0)
+	print("published return="+str(ret))
+	topico = "LeitorRFID/" + topic2 + "/Ciclo"
+	ret = client.publish(topico, str(cicloLeitura), 0)
+	print("published return="+str(ret))	
+	for i in range(len(topic3)):
+		for j in range(len(clean)):
+			topic3 =  topic3.replace(clean[j], '')
+	topico = "LeitorRFID/" + topic3
+	ret = client.publish(topico, epc3, 0)
+	print("published return="+str(ret))
+	topico = "LeitorRFID/" + topic3 + "/Tempo"
+	ret = client.publish(topico, tempo3, 0)
+	print("published return="+str(ret))
+	topico = "LeitorRFID/" + topic3 + "/Rssi"
+	ret = client.publish(topico, cicloLeitura*2, 0)
+	print("published return="+str(ret))
+	topico = "LeitorRFID/" + topic3 + "/Ciclo"
+	ret = client.publish(topico, str(cicloLeitura), 0)
+	print("published return="+str(ret))
+	ini = time.time()
+	while (tempo>0):		
+		cicloLeitura = cicloLeitura+1
+		fim = time.time()
+		if ((fim-ini)>=tempo):
+			tempo=0
+		print (fim-ini)
+		if (printar==60):
+			printar = 0
+			epc1 = "b'E2000017221101241890547C'"
+			epc2 = "b'E20000172211012518905484'"
+			epc3 = "b'E20000172211013118905493'"
+			tempo1 = "2021-04-27 20:"+str(cicloLeitura)+":54.622000"
+			tempo2 = "2021-04-27 20:"+str(cicloLeitura+1)+":54.622000"
+			tempo3 = "2021-04-27 20:"+str(cicloLeitura+2)+":54.622000"
+			if(cicloLeitura<=7):
+				tempo1 = "2021-04-27 20:0"+str(cicloLeitura)+":"+str(randint(10,59))+".622000"
+				tempo2 = "2021-04-27 20:0"+str(cicloLeitura+1)+":"+str(randint(10,59))+".622000"
+				tempo3 = "2021-04-27 20:0"+str(cicloLeitura+2)+":"+str(randint(10,59))+".622000"
+			elif(cicloLeitura==8):
+				tempo1 = "2021-04-27 20:0"+str(cicloLeitura)+":"+str(randint(10,59))+".622000"
+				tempo2 = "2021-04-27 20:0"+str(cicloLeitura+1)+":"+str(randint(10,59))+".622000"
+				tempo3 = "2021-04-27 20:"+str(cicloLeitura+2)+":"+str(randint(10,59))+".622000"
+			elif(cicloLeitura==9):
+				tempo1 = "2021-04-27 20:0"+str(cicloLeitura)+":"+str(randint(10,59))+".622000"
+				tempo2 = "2021-04-27 20:"+str(cicloLeitura+1)+":"+str(randint(10,59))+".622000"
+				tempo3 = "2021-04-27 20:"+str(cicloLeitura+2)+":"+str(randint(10,59))+".622000"
+			topic1= epc1
+			topic2= epc2
+			topic3= epc3
+			for i in range(len(topic1)):
+				for j in range(len(clean)):
+					topic1 =  topic1.replace(clean[j], '')
+			topico = "LeitorRFID/" + topic1
+			ret = client.publish(topico, epc1, 0)
+			print("published return="+str(ret))
+			topico = "LeitorRFID/" + topic1 + "/Tempo"
+			ret = client.publish(topico, tempo1, 0)
+			print("published return="+str(ret))
+			topico = "LeitorRFID/" + topic1 + "/Rssi"
+			ret = client.publish(topico, cicloLeitura*2, 0)
+			print("published return="+str(ret))
+			topico = "LeitorRFID/" + topic1 + "/Ciclo"
+			ret = client.publish(topico, str(cicloLeitura), 0)
+			print("published return="+str(ret))	
+			for i in range(len(topic2)):
+				for j in range(len(clean)):
+					topic2 =  topic2.replace(clean[j], '')
+			topico = "LeitorRFID/" + topic2
+			ret = client.publish(topico, epc2, 0)
+			print("published return="+str(ret))
+			topico = "LeitorRFID/" + topic2 + "/Tempo"
+			ret = client.publish(topico, tempo2, 0)
+			print("published return="+str(ret))
+			topico = "LeitorRFID/" + topic2 + "/Rssi"
+			ret = client.publish(topico, cicloLeitura*2, 0)
+			print("published return="+str(ret))
+			topico = "LeitorRFID/" + topic2 + "/Ciclo"
+			ret = client.publish(topico, str(cicloLeitura), 0)
+			print("published return="+str(ret))	
+			for i in range(len(topic3)):
+				for j in range(len(clean)):
+					topic3 =  topic3.replace(clean[j], '')
+			topico = "LeitorRFID/" + topic3
+			ret = client.publish(topico, epc3, 0)
+			print("published return="+str(ret))
+			topico = "LeitorRFID/" + topic3 + "/Tempo"
+			ret = client.publish(topico, tempo3, 0)
+			print("published return="+str(ret))
+			topico = "LeitorRFID/" + topic3 + "/Rssi"
+			ret = client.publish(topico, cicloLeitura*2, 0)
+			print("published return="+str(ret))
+			topico = "LeitorRFID/" + topic3 + "/Ciclo"
+			ret = client.publish(topico, str(cicloLeitura), 0)
+			print("published return="+str(ret))		
+		time.sleep(5)
+		printar = printar+5
+	if (tempo==0):
+		time.sleep(5)
+	print ("acabou o qualificatorio")
+	ret = client.publish("Resposta/Quali", "Acabou", 0)
+	print("published return="+str(ret))
+
+def simulaCorrida():
+	global dadosDaLeitura, tempoQuali, cicloLeitura, voltas
+	cicloLeitura = 0
+	time.sleep(5)
+	printar = 0
+	tempoCorrida = (tempoQuali+10)*voltas
+	ini = time.time()
+	while (tempoCorrida>0):
+		cicloLeitura = cicloLeitura+1
+		fim = time.time()
+		if ((fim-ini)>=tempoCorrida):
+			tempoCorrida=0
+		print (fim-ini)
+		if (printar==60):
+			printar = 0
+			epc1 = "b'E2000017221101241890547C'"
+			epc2 = "b'E20000172211012518905484'"
+			epc3 = "b'E20000172211013118905493'"
+			tempo1 = "2021-04-27 20:"+str(cicloLeitura)+":54.622000"
+			tempo2 = "2021-04-27 20:"+str(cicloLeitura+1)+":54.622000"
+			tempo3 = "2021-04-27 20:"+str(cicloLeitura+2)+":54.622000"
+			if(cicloLeitura<=7):
+				tempo1 = "2021-04-27 20:0"+str(cicloLeitura)+":54.622000"
+				tempo2 = "2021-04-27 20:0"+str(cicloLeitura+1)+":54.622000"
+				tempo3 = "2021-04-27 20:0"+str(cicloLeitura+2)+":54.622000"
+			elif(cicloLeitura==8):
+				tempo1 = "2021-04-27 20:0"+str(cicloLeitura)+":54.622000"
+				tempo2 = "2021-04-27 20:0"+str(cicloLeitura+1)+":54.622000"
+				tempo3 = "2021-04-27 20:"+str(cicloLeitura+2)+":54.622000"
+			elif(cicloLeitura==9):
+				tempo1 = "2021-04-27 20:0"+str(cicloLeitura)+":54.622000"
+				tempo2 = "2021-04-27 20:"+str(cicloLeitura+1)+":54.622000"
+				tempo3 = "2021-04-27 20:"+str(cicloLeitura+2)+":54.622000"
+			topic1= epc1
+			topic2= epc2
+			topic3= epc3
+			for i in range(len(topic1)):
+				for j in range(len(clean)):
+					topic1 =  topic1.replace(clean[j], '')
+			topico = "LeitorRFID/" + topic1
+			ret = client.publish(topico, epc1, 0)
+			print("published return="+str(ret))
+			topico = "LeitorRFID/" + topic1 + "/Tempo"
+			ret = client.publish(topico, tempo1, 0)
+			print("published return="+str(ret))
+			topico = "LeitorRFID/" + topic1 + "/Rssi"
+			ret = client.publish(topico, cicloLeitura*2, 0)
+			print("published return="+str(ret))
+			topico = "LeitorRFID/" + topic1 + "/Ciclo"
+			ret = client.publish(topico, str(cicloLeitura), 0)
+			print("published return="+str(ret))	
+			for i in range(len(topic2)):
+				for j in range(len(clean)):
+					topic2 =  topic2.replace(clean[j], '')
+			topico = "LeitorRFID/" + topic2
+			ret = client.publish(topico, epc2, 0)
+			print("published return="+str(ret))
+			topico = "LeitorRFID/" + topic2 + "/Tempo"
+			ret = client.publish(topico, tempo2, 0)
+			print("published return="+str(ret))
+			topico = "LeitorRFID/" + topic2 + "/Rssi"
+			ret = client.publish(topico, cicloLeitura*2, 0)
+			print("published return="+str(ret))
+			topico = "LeitorRFID/" + topic2 + "/Ciclo"
+			ret = client.publish(topico, str(cicloLeitura), 0)
+			print("published return="+str(ret))	
+			for i in range(len(topic3)):
+				for j in range(len(clean)):
+					topic3 =  topic3.replace(clean[j], '')
+			topico = "LeitorRFID/" + topic3
+			ret = client.publish(topico, epc3, 0)
+			print("published return="+str(ret))
+			topico = "LeitorRFID/" + topic3 + "/Tempo"
+			ret = client.publish(topico, tempo3, 0)
+			print("published return="+str(ret))
+			topico = "LeitorRFID/" + topic3 + "/Rssi"
+			ret = client.publish(topico, cicloLeitura*2, 0)
+			print("published return="+str(ret))
+			topico = "LeitorRFID/" + topic3 + "/Ciclo"
+			ret = client.publish(topico, str(cicloLeitura), 0)
+			print("published return="+str(ret))		
+		time.sleep(5)
+		printar = printar+5
+	if (tempoCorrida==0):
+		time.sleep(5)
+	print ("acabou a corrida")
+	ret = client.publish("Resposta/Corrida", "Acabou", 0)
+	print("published return="+str(ret))
+###########################################################################################################################
 
 '''
 * Monitora o estado do botão.
@@ -390,172 +638,3 @@ while 1:
 
 #fim :)
 
-def simulaQuali():
-	global dadosDaLeitura, tempoQuali, cicloLeitura
-	cicloLeitura = 0
-	tempo = tempoQuali
-	time.sleep(5)
-	ini = time.time()
-	while (tempo>0):		
-		cicloLeitura = cicloLeitura+1
-		fim = time.time()
-		if ((fim-ini)>=tempo):
-			tempo=0
-		print (fim-ini)
-		epc1 = "b'E2000017221101241890547C'"
-		epc2 = "b'E20000172211012518905484'"
-		epc3 = "b'E20000172211013118905493'"
-		tempo1 = "2021-04-27 20:"+str(cicloLeitura)+":54.622000"
-		tempo2 = "2021-04-27 20:"+str(cicloLeitura+1)+":54.622000"
-		tempo3 = "2021-04-27 20:"+str(cicloLeitura+2)+":54.622000"
-		if(cicloLeitura<=7):
-			tempo1 = "2021-04-27 20:0"+str(cicloLeitura)+":54.622000"
-			tempo2 = "2021-04-27 20:0"+str(cicloLeitura+1)+":54.622000"
-			tempo3 = "2021-04-27 20:0"+str(cicloLeitura+2)+":54.622000"
-		elif(cicloLeitura==8):
-			tempo1 = "2021-04-27 20:0"+str(cicloLeitura)+":54.622000"
-			tempo2 = "2021-04-27 20:0"+str(cicloLeitura+1)+":54.622000"
-			tempo3 = "2021-04-27 20:"+str(cicloLeitura+2)+":54.622000"
-		elif(cicloLeitura==9):
-			tempo1 = "2021-04-27 20:0"+str(cicloLeitura)+":54.622000"
-			tempo2 = "2021-04-27 20:"+str(cicloLeitura+1)+":54.622000"
-			tempo3 = "2021-04-27 20:"+str(cicloLeitura+2)+":54.622000"
-		topic1= epc1
-		topic2= epc2
-		topic3= epc3
-		for i in range(len(topic1)):
-			for j in range(len(clean)):
-				topic1 =  topic1.replace(clean[j], '')
-		topico = "LeitorRFID/" + topic1
-		ret = client.publish(topico, epc1, 0)
-		print("published return="+str(ret))
-		topico = "LeitorRFID/" + topic1 + "/Tempo"
-		ret = client.publish(topico, tempo1, 0)
-		print("published return="+str(ret))
-		topico = "LeitorRFID/" + topic1 + "/Rssi"
-		ret = client.publish(topico, cicloLeitura*2, 0)
-		print("published return="+str(ret))
-		topico = "LeitorRFID/" + topic1 + "/Ciclo"
-		ret = client.publish(topico, str(cicloLeitura), 0)
-		print("published return="+str(ret))	
-		for i in range(len(topic2)):
-			for j in range(len(clean)):
-				topic2 =  topic2.replace(clean[j], '')
-		topico = "LeitorRFID/" + topic2
-		ret = client.publish(topico, epc2, 0)
-		print("published return="+str(ret))
-		topico = "LeitorRFID/" + topic2 + "/Tempo"
-		ret = client.publish(topico, tempo2, 0)
-		print("published return="+str(ret))
-		topico = "LeitorRFID/" + topic2 + "/Rssi"
-		ret = client.publish(topico, cicloLeitura*2, 0)
-		print("published return="+str(ret))
-		topico = "LeitorRFID/" + topic2 + "/Ciclo"
-		ret = client.publish(topico, str(cicloLeitura), 0)
-		print("published return="+str(ret))	
-		for i in range(len(topic3)):
-			for j in range(len(clean)):
-				topic3 =  topic3.replace(clean[j], '')
-		topico = "LeitorRFID/" + topic3
-		ret = client.publish(topico, epc3, 0)
-		print("published return="+str(ret))
-		topico = "LeitorRFID/" + topic3 + "/Tempo"
-		ret = client.publish(topico, tempo3, 0)
-		print("published return="+str(ret))
-		topico = "LeitorRFID/" + topic3 + "/Rssi"
-		ret = client.publish(topico, cicloLeitura*2, 0)
-		print("published return="+str(ret))
-		topico = "LeitorRFID/" + topic3 + "/Ciclo"
-		ret = client.publish(topico, str(cicloLeitura), 0)
-		print("published return="+str(ret))		
-		time.sleep(5)
-	if (tempo==0):
-		time.sleep(5)
-	print ("acabou o qualificatorio")
-	ret = client.publish("Resposta/Quali", "Acabou", 0)
-	print("published return="+str(ret))
-
-def simulaCorrida():
-	global dadosDaLeitura, tempoQuali, cicloLeitura, voltas
-	cicloLeitura = 0
-	time.sleep(5)
-	tempoCorrida = (tempoQuali+10)*voltas
-	ini = time.time()
-	while (tempoCorrida>0):
-		cicloLeitura = cicloLeitura+1
-		fim = time.time()
-		if ((fim-ini)>=tempoCorrida):
-			tempoCorrida=0
-		print (fim-ini)	
-		epc1 = "b'E2000017221101241890547C'"
-		epc2 = "b'E20000172211012518905484'"
-		epc3 = "b'E20000172211013118905493'"
-		tempo1 = "2021-04-27 20:"+str(cicloLeitura)+":54.622000"
-		tempo2 = "2021-04-27 20:"+str(cicloLeitura+1)+":54.622000"
-		tempo3 = "2021-04-27 20:"+str(cicloLeitura+2)+":54.622000"
-		if(cicloLeitura<=7):
-			tempo1 = "2021-04-27 20:0"+str(cicloLeitura)+":54.622000"
-			tempo2 = "2021-04-27 20:0"+str(cicloLeitura+1)+":54.622000"
-			tempo3 = "2021-04-27 20:0"+str(cicloLeitura+2)+":54.622000"
-		elif(cicloLeitura==8):
-			tempo1 = "2021-04-27 20:0"+str(cicloLeitura)+":54.622000"
-			tempo2 = "2021-04-27 20:0"+str(cicloLeitura+1)+":54.622000"
-			tempo3 = "2021-04-27 20:"+str(cicloLeitura+2)+":54.622000"
-		elif(cicloLeitura==9):
-			tempo1 = "2021-04-27 20:0"+str(cicloLeitura)+":54.622000"
-			tempo2 = "2021-04-27 20:"+str(cicloLeitura+1)+":54.622000"
-			tempo3 = "2021-04-27 20:"+str(cicloLeitura+2)+":54.622000"
-		topic1= epc1
-		topic2= epc2
-		topic3= epc3
-		for i in range(len(topic1)):
-			for j in range(len(clean)):
-				topic1 =  topic1.replace(clean[j], '')
-		topico = "LeitorRFID/" + topic1
-		ret = client.publish(topico, epc1, 0)
-		print("published return="+str(ret))
-		topico = "LeitorRFID/" + topic1 + "/Tempo"
-		ret = client.publish(topico, tempo1, 0)
-		print("published return="+str(ret))
-		topico = "LeitorRFID/" + topic1 + "/Rssi"
-		ret = client.publish(topico, cicloLeitura*2, 0)
-		print("published return="+str(ret))
-		topico = "LeitorRFID/" + topic1 + "/Ciclo"
-		ret = client.publish(topico, str(cicloLeitura), 0)
-		print("published return="+str(ret))	
-		for i in range(len(topic2)):
-			for j in range(len(clean)):
-				topic2 =  topic2.replace(clean[j], '')
-		topico = "LeitorRFID/" + topic2
-		ret = client.publish(topico, epc2, 0)
-		print("published return="+str(ret))
-		topico = "LeitorRFID/" + topic2 + "/Tempo"
-		ret = client.publish(topico, tempo2, 0)
-		print("published return="+str(ret))
-		topico = "LeitorRFID/" + topic2 + "/Rssi"
-		ret = client.publish(topico, cicloLeitura*2, 0)
-		print("published return="+str(ret))
-		topico = "LeitorRFID/" + topic2 + "/Ciclo"
-		ret = client.publish(topico, str(cicloLeitura), 0)
-		print("published return="+str(ret))	
-		for i in range(len(topic3)):
-			for j in range(len(clean)):
-				topic3 =  topic3.replace(clean[j], '')
-		topico = "LeitorRFID/" + topic3
-		ret = client.publish(topico, epc3, 0)
-		print("published return="+str(ret))
-		topico = "LeitorRFID/" + topic3 + "/Tempo"
-		ret = client.publish(topico, tempo3, 0)
-		print("published return="+str(ret))
-		topico = "LeitorRFID/" + topic3 + "/Rssi"
-		ret = client.publish(topico, cicloLeitura*2, 0)
-		print("published return="+str(ret))
-		topico = "LeitorRFID/" + topic3 + "/Ciclo"
-		ret = client.publish(topico, str(cicloLeitura), 0)
-		print("published return="+str(ret))		
-		time.sleep(5)
-	if (tempoCorrida==0):
-		time.sleep(5)
-	print ("acabou a corrida")
-	ret = client.publish("Resposta/Corrida", "Acabou", 0)
-	print("published return="+str(ret))
