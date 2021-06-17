@@ -621,12 +621,12 @@ def on_message(client, userdata, msg):
 		
 consumidor = Thread(target=consumidor)
 #botao = Thread(target=monitor_botao)
-client = mqtt.Client("williamsoares@ecomp.uefs.br", False)
-client.username_pw_set("williamw0nka", "sDuXCugk-6xD9Og9d")
+client = mqtt.Client("ServidorRasp", False)
+client.username_pw_set("pblredes", "pblredes1234")
 client.on_connect = on_connect
 client.on_message = on_message
 
-client.connect("node02.myqtthub.com", 1883, 60)
+client.connect("pblredes.ddns.net", 1883, 60)
 client.loop_start()
 #botao.start()
 print("Entrando no while")
