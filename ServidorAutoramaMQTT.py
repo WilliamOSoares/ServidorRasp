@@ -123,13 +123,14 @@ def simulaQuali():
 	ret = client.publish(topico, str(cicloLeitura), 0)
 	print("published return="+str(ret))
 	ini = time.time()
-	while (tempo>0):		
-		cicloLeitura = cicloLeitura+1
+	cicloLeitura = cicloLeitura+1
+	while (tempo>0):	
 		fim = time.time()
 		if ((fim-ini)>=tempo):
 			tempo=0
 		print (fim-ini)
 		if (printar==60):
+			cicloLeitura = cicloLeitura+1
 			printar = 0
 			epc1 = "b'E2000017221101241890547C'"
 			epc2 = "b'E20000172211012518905484'"
@@ -212,13 +213,13 @@ def simulaCorrida():
 	printar = 0
 	tempoCorrida = (tempoQuali+10)*voltas
 	ini = time.time()
-	while (tempoCorrida>0):
-		cicloLeitura = cicloLeitura+1
+	while (tempoCorrida>0):		
 		fim = time.time()
 		if ((fim-ini)>=tempoCorrida):
 			tempoCorrida=0
 		print (fim-ini)
 		if (printar==60):
+			cicloLeitura = cicloLeitura+1
 			printar = 0
 			epc1 = "b'E2000017221101241890547C'"
 			epc2 = "b'E20000172211012518905484'"
