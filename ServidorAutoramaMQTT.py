@@ -132,7 +132,7 @@ def dadosLeitura(epc, rssi, date):
 * para o cliente e logo em seguida, é enviado.
 '''
 def refinaEnviaDado(cicloLeitura):
-	global dadosDaLeitura, bt, trava, envia
+	global dadosDaLeitura, trava, envia
 	trava.acquire()	
 	if(envia):
 		if(len(dadosDaLeitura)>0):		
@@ -152,13 +152,6 @@ def refinaEnviaDado(cicloLeitura):
 				ret = client.publish(topico3, dadoRssi, 0)
 				topico4 = "LeitorRFID/" + topic + "/Ciclo"
 				ret = client.publish(topico4, str(cicloLeitura), 0)
-				#print(dadoEpc)
-				#print(dadoTempo)
-		if (bt):
-			topico5 = "Config/Botao"
-			ret = client.publish(topico5, str(bt), 0)
-			print("published return="+str(ret))
-			bt = False
 		envia = False
 		trava.release()
 		return True
@@ -200,7 +193,11 @@ def qualificatorio(consumidor):
 	ini = time.time()
 	while (tempo>0):
 		time.sleep(5)
-		#print(bt)
+		if(bt):
+			topico5 = "Config/Botao"
+			ret = client.publish(topico5, str(bt), 0)
+			print("published return="+str(ret))
+			bt = False
 		fim = time.time()
 		if ((fim-ini)>=tempo):
 			tempo=0
@@ -245,7 +242,7 @@ def retornaEPC():
 * para dormir e é enviado ao cliente que a corrida acabou. 
 '''
 def corrida(consumidor):
-	global dadosDaLeitura, tempoMin, cicloLeitura, trava, online, voltas, final
+	global dadosDaLeitura, tempoMin, cicloLeitura, trava, online, voltas, final, bt
 	reader = iniciaLeitor()
 	cicloLeitura = 0
 	time.sleep(5)
@@ -256,6 +253,11 @@ def corrida(consumidor):
 	ini = time.time()
 	while (tempoCorrida>0):
 		time.sleep(5)
+		if (bt):
+			topico5 = "Config/Botao"
+			ret = client.publish(topico5, str(bt), 0)
+			print("published return="+str(ret))
+			bt = False
 		fim = time.time()
 		if ((fim-ini)>=tempoCorrida):
 			tempoCorrida=0
